@@ -13,7 +13,7 @@ from typing import Dict, Any
 AIPROXY_TOKEN = os.environ.get("AIPROXY_TOKEN")
 AIPROXY_URL = "http://aiproxy.sanand.workers.dev/openai/v1/chat/completions"
 
-def query_llm(task: str, tools: list[Dict[str, Any]]) -> Dict[str, Any]:
+def query_gpt(task: str, tools: list[Dict[str, Any]]) -> Dict[str, Any]:
     try:
         response = httpx.post(
             AIPROXY_URL,
