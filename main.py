@@ -1,8 +1,16 @@
 # /// script
 # dependencies = [
 #   "fastapi",
+#   "requests",
+#   "numpy",
 #   "uvicorn",
+#   "markdown",
+#   "duckdb",
+#   "beautifulsoup4",
+#   "python-dateutil",
 #   "httpx",
+#   "scikit-learn",
+#   "pydantic",
 # ]
 # ///
 
