@@ -31,18 +31,17 @@ from query_llm import *
 def normalize_path(path):
     path = path.lstrip('/') if not os.path.exists(path) else path
     if not path.startswith('data'):
-        raise HTTPException(status_code=400, detail="Path must reside within the /data directory.")  # Bad Request
+        raise HTTPException(status_code=400, detail="Path must reside within the /data directory.")  
     return path
 
-# LLM function for extracting useful information from user prompts
 def query_llm(prompt: str) -> Dict[str, Any]:  
     try:
         request_data = {
-            "model": "gpt-4o-mini",  # Or your preferred model
+            "model": "gpt-4o-mini", 
             "messages": [{"role": "user", "content": prompt}],
         }
 
-        print("Request Data:", json.dumps(request_data, indent=2))  # Print the request
+        print("Request Data:", json.dumps(request_data, indent=2))
 
         response = httpx.post(
             AIPROXY_URL,
@@ -52,7 +51,7 @@ def query_llm(prompt: str) -> Dict[str, Any]:
             },
             json=request_data,timeout=10.0
         )
-        response.raise_for_status() #Raise HTTPError for bad responses (4xx or 5xx)
+        response.raise_for_status() 
         response_data = response.json()
         logging.info(f"GPT API Response: {json.dumps(response_data, indent=2)}")
 
@@ -68,15 +67,15 @@ def query_llm(prompt: str) -> Dict[str, Any]:
 #Task A1
 def run_uv_script(url: str, email: str):
     try:
-        # Install uv (ignore errors if already installed)
+        
         subprocess.run(["pip", "install", "uv"], check=False)
 
-        # Run the script and capture output
+        
         result = subprocess.run(
             ["uv", "run", url, email, "--root", "./data"],
             check=True,
-            capture_output=True,  # Capture stdout and stderr
-            text=True             # Return output as a string
+            capture_output=True,  
+            text=True             
         )
         return {"success": True, "message": result.stdout or "Script executed successfully."}
 
@@ -88,7 +87,7 @@ def format_file(filepath):
         try:
             result = subprocess.run(
                 ["npx", "prettier@3.4.2", "--write", filepath],
-                check=False,  # Don't raise exception automatically
+                check=False,  
                 capture_output=True,
                 text=True
             )
@@ -109,7 +108,7 @@ def count_weekdays(file_path: str, weekday: str, output_path: str):
     weekday_index = weekdays.index(weekday)
     count=0
 
-    # Read and process the dates
+    
     with open(file_path, "r") as file:
         for line in file:
             date_str = line.strip()
@@ -119,7 +118,7 @@ def count_weekdays(file_path: str, weekday: str, output_path: str):
                     if date_obj.weekday() == weekday_index:
                         count += 1
                 except ValueError:
-                    # Skip invalid date formats
+                    
                     continue
 
     with open(output_path, 'w') as output_file:
@@ -162,11 +161,11 @@ def write_recent_logs(log_dir, output_file, num_files):
             for log_file in recent_log_files:
                 try:
                     with open(log_file, 'r') as infile:
-                        first_line = infile.readline().strip()  # Read and strip leading/trailing whitespace
-                        outfile.write(f"{first_line}\n") #Include file name
+                        first_line = infile.readline().strip()  
+                        outfile.write(f"{first_line}\n") 
                 except Exception as e:
                     logging.error(f"Error reading file {log_file}: {e}")
-                    outfile.write(f"Error reading file {log_file}\n")  # Write an error message
+                    outfile.write(f"Error reading file {log_file}\n")  
 
         return {"success": True, "message": f"Wrote first lines of {num_files} recent log files to {output_file}"}
 
@@ -179,7 +178,7 @@ def extract_markdown_headers(input_dir: str, output_file: str):
     headers_dict = {}
 
     try:
-        # Recursively find all Markdown files in subdirectories
+        
         md_files = []
         for subdir, dirs, files in os.walk(input_dir):
             for file in files:
@@ -189,18 +188,18 @@ def extract_markdown_headers(input_dir: str, output_file: str):
         if not md_files:
             raise HTTPException(status_code=404, detail="No Markdown files found in /data/docs/")
 
-        # Extract the first H1 header from each Markdown file
+        
         for md_file in md_files:
             with open(md_file, "r", encoding="utf-8") as file:
                 for line in file:
-                    match = re.match(r"^# (.+)", line.strip())  # Find the first H1 header
+                    match = re.match(r"^# (.+)", line.strip())  
                     if match:
-                        # Remove /data/docs/ prefix and add to the dictionary
+                        
                         relative_file_path = os.path.relpath(md_file, input_dir)
                         headers_dict[relative_file_path] = match.group(1)
-                        break  # Stop after the first H1
+                        break  
 
-        # Save extracted headers to index.json
+        
         with open(output_file, "w", encoding="utf-8") as file:
             json.dump(headers_dict, file, indent=4)
         return {"success": True, "message": "Extracted H1 headers & from Markdown files. Saved to {output_file}"}
@@ -227,9 +226,9 @@ def write_email_eddress(input_file: str, output_file: str):
         )
 
         if "error" in gpt_response:
-            return {"success": False, "message": gpt_response["error"]} #Return error from query_llm
+            return {"success": False, "message": gpt_response["error"]} 
 
-        extracted_content = gpt_response.get("content").strip() #Handle cases where 'content' is missing
+        extracted_content = gpt_response.get("content").strip() 
 
         with open(output_file, "w") as outfile:
             outfile.write(extracted_content)
@@ -275,16 +274,16 @@ def write_credit_card_no(input_file: str, output_file: str):
                 "Content-Type": "application/json",
             },
             json=request_data,
-            timeout=10.0  # Set timeout
+            timeout=10.0  
         )
-        response.raise_for_status() #Raise HTTPError for bad responses (4xx or 5xx)
+        response.raise_for_status() 
         response_data = response.json()
         logging.info(f"GPT API Response: {json.dumps(response_data, indent=2)}")
 
         if "choices" not in response_data or not response_data["choices"]:
             return {"error": "Invalid response from API"}
 
-        # Correct extraction from response_data:
+       
         extracted_no = response_data["choices"][0]["message"].get("content", "Credit card number not found").strip()
 
         with open(output_file, "w") as outfile:
@@ -315,32 +314,32 @@ async def similar_comments(input_file: str, output_file: str):
                 }, 
                 timeout=10.0  
             )
-            response.raise_for_status() # Check for HTTP errors
+            response.raise_for_status() 
             embeddings = np.array([emb["embedding"] for emb in response.json()["data"]])
             
-            # Compute pairwise cosine similarity
+            
             similarity_matrix = cosine_similarity(embeddings)
             
-            # Find the most similar pair (excluding self-similarity)
+            
             np.fill_diagonal(similarity_matrix, -1)  # Ignore self-similarity
             most_similar_indices = np.unravel_index(np.argmax(similarity_matrix), similarity_matrix.shape)
             
-            # Get the most similar pair of comments
+            
             comment1 = data[most_similar_indices[0]]
             comment2 = data[most_similar_indices[1]]
             
             if comment1 and comment2:
-                # Write the pair to the output file
+                
                 with open(output_file, "w") as file:
                     file.write(f"{comment1}\n{comment2}")
-                return {  # Return a dictionary with more information
+                return {  
                     "success": True,
                     "message": f"Most similar comments written to {output_file}",
-                    "most_similar_indices": [int(i) for i in most_similar_indices] # Convert to list for JSON serialization
+                    "most_similar_indices": [int(i) for i in most_similar_indices] 
                 }
 
             else:
-                return {"success": True, "message": "No similar comments found"}  # Should not happen, but good to have
+                return {"success": True, "message": "No similar comments found"}  
 
     except FileNotFoundError:
         return {"success": False, "message": f"File not found: {input_file}"}
@@ -359,7 +358,7 @@ def calculate_gold_sales(db_path: str, output_path: str):
         cursor.execute("SELECT SUM(units * price) FROM tickets WHERE type = 'Gold'")
         result = cursor.fetchone()[0]
 
-        total_sales = result if result is not None else 0  # Handle cases where no Gold tickets exist
+        total_sales = result if result is not None else 0  
 
         with open(output_path, "w") as outfile:
             outfile.write(str(total_sales))
@@ -379,7 +378,7 @@ def fetch_and_save_data(api_endpoint: str, output_file: str):
         response = requests.get(api_endpoint)
         response.raise_for_status()
 
-        text_data = response.text  # Get the text content
+        text_data = response.text  
 
         with open(output_file, 'w') as f:
             f.write(text_data)
@@ -394,10 +393,10 @@ def fetch_and_save_data(api_endpoint: str, output_file: str):
 def clone_git(repo_url, filepath):
     try:
         if os.path.exists(filepath):
-            subprocess.run(["rm", "-rf", filepath], check=True)  # Remove if exists
+            subprocess.run(["rm", "-rf", filepath], check=True)  
         subprocess.run(["git", "clone", repo_url, filepath], check=True)
         
-        with open(os.path.join(filepath, "new_file.txt"), "a") as f: # Append to file
+        with open(os.path.join(filepath, "new_file.txt"), "a") as f: 
             f.write("More test content\n")
 
         subprocess.run(["git", "add", "."], cwd=filepath, check=True)
@@ -458,12 +457,12 @@ def run_sql_query_on_db(db_file: str, sql_query: str, output_file: str, is_sqlit
 from bs4 import BeautifulSoup
 def scrape_website(url: str, output_file: str):
     try:
-        response = requests.get(url, timeout=10)  # Set timeout to avoid hanging requests
-        response.raise_for_status()  # Raise an error for bad responses (4xx, 5xx)
+        response = requests.get(url, timeout=10)  
+        response.raise_for_status()  
         
         soup = BeautifulSoup(response.text, "html.parser")
         
-        with open(output_file, "w", encoding="utf-8") as file:  # Ensure correct encoding
+        with open(output_file, "w", encoding="utf-8") as file:  
             file.write(soup.prettify())
         
         return {"success": True, "message": f"Webpage scraped and saved to {output_file}"}

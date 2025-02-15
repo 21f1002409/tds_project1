@@ -14,11 +14,11 @@ import os
 import json
 import uvicorn
 
-from tools import tools  # Import tools list
-from functions import *  # Import all the functions
-from query_llm import query_llm # Import query_llm function
+from tools import tools  
+from functions import *  
+from query_llm import query_llm 
 
-# Set up logging
+
 logging.basicConfig(level=logging.INFO)
 
 app = FastAPI()
@@ -139,8 +139,8 @@ async def run_task(task: str = Query(..., description="User query to be processe
             output_file = normalize_path(arguments.get("output_file"))
 
             if input_file and output_file:
-                result = await similar_comments(input_file, output_file) # Await here!
-                return result # Return the awaited result
+                result = await similar_comments(input_file, output_file) 
+                return result 
             else:
                 return {"success": False, "message": "Missing required parameters."}
         
