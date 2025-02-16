@@ -40,7 +40,7 @@ RUN apt-get update && apt-get install -y --fix-missing --no-install-recommends \
 RUN npm install -g prettier
 
 # Copy the FastAPI application code into the container
-COPY app /app
+COPY . /app
 
 # Install all required Python dependencies
 
