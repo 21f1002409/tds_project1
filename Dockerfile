@@ -66,9 +66,6 @@ RUN pip install --no-cache-dir \
     
 RUN pip install --no-cache-dir \
     ffmpeg-python 
-
-RUN git config --global user.name "21f1002409" && \
-    git config --global user.email "21f1002409@ds.study.iitm.ac.in"
 # Expose the port that the app runs on
 EXPOSE 8000
 
