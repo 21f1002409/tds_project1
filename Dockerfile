@@ -1,25 +1,76 @@
-FROM python:3.12-slim-bookworm
+# Use Debian-based slim Python image
+FROM python:3.11-slim
 
-# Install system dependencies (curl and ca-certificates)
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates
+# Prevent Python from writing .pyc files and enable unbuffered output
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
-# Install Node.js and npm
-RUN apt-get update && apt-get install -y nodejs npm
-
-# Install Prettier globally (ESSENTIAL)
-RUN npm install -g prettier@3.4.2
-
-# Download and run uv installer
-ADD https://astral.sh/uv/install.sh /uv-installer.sh
-RUN sh /uv-installer.sh && rm /uv-installer.sh
-
-# Add uv to PATH
-ENV PATH="/root/.local/bin/:$PATH"
-
+# Set the working directory in the container
 WORKDIR /app
 
-RUN mkdir -p /data
+# Upgrade pip, setuptools, and wheel
+RUN pip install --upgrade pip setuptools wheel
 
-COPY . . 
+# Install system dependencies required for the application
+RUN apt-get update && apt-get install -y --fix-missing --no-install-recommends \
+    gcc \
+    g++ \
+    make \
+    libffi-dev \
+    musl-dev \
+    libopenblas-dev \
+    sqlite3 \
+    libsqlite3-dev \
+    libmagic-dev \
+    tesseract-ocr \
+    ffmpeg \
+    flac \
+    curl \
+    git \
+    nodejs \
+    npm \
+    libsndfile1 \
+    libasound2 \
+    libportaudio2 \
+    libportaudiocpp0 \
+    portaudio19-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-CMD ["uv", "run", "main.py"]
+# Install Prettier globally using npm
+RUN npm install -g prettier
+
+# Copy the FastAPI application code into the container
+COPY app /app
+
+# Install all required Python dependencies
+
+RUN pip install --no-cache-dir \
+    uv \
+    pytesseract \
+    python-dotenv \
+    beautifulsoup4 \
+    markdown \
+    duckdb \
+    numpy \
+    python-dateutil \
+    docstring-parser \
+    httpx \
+    pydantic \
+    SpeechRecognition \
+    fastapi \
+    requests \
+    pillow \
+    uvicorn \
+    ffmpeg-python \
+    pydub 
+    
+RUN pip install --no-cache-dir \
+    ffmpeg-python 
+
+RUN git config --global user.name "21f1002409" && \
+    git config --global user.email "21f1002409@ds.study.iitm.ac.in"
+# Expose the port that the app runs on
+EXPOSE 8000
+
+# Command to run the application
+CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

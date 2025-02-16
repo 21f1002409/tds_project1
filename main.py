@@ -2,238 +2,177 @@
 # dependencies = [
 #   "fastapi",
 #   "requests",
-#   "numpy",
+#   "python-dotenv",
 #   "uvicorn",
-#   "markdown",
-#   "duckdb",
+#   "python-dotenv",
 #   "beautifulsoup4",
+#   "markdown",
+#   "requests<3",
+#   "duckdb",
+#   "numpy",
 #   "python-dateutil",
+#   "docstring-parser",
 #   "httpx",
-#   "scikit-learn",
 #   "pydantic",
 # ]
 # ///
-
+import traceback
+import json
+from dotenv import load_dotenv
+import requests
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import PlainTextResponse
-from fastapi.middleware.cors import CORSMiddleware
-import logging
 import os
-import json
+import logging
+from typing import Dict, Callable
 import uvicorn
 
-from tools import tools  # Import tools list
-from functions import *  # Import all the functions
-from query_gpt import query_gpt # Import query_gpt function
+from funtion_tasks import (
+format_file_with_prettier,
+convert_function_to_openai_schema,
+query_gpt,
+query_gpt_image, 
+query_database, 
+extract_specific_text_using_llm, 
+get_embeddings, 
+get_similar_text_using_embeddings, 
+extract_text_from_image, 
+extract_specific_content_and_create_index, 
+process_and_write_logfiles, 
+sort_json_by_keys, 
+count_occurrences, 
+install_and_run_script,
+fetch_data_from_api_and_save,
+clone_git_repo_and_commit,
+scrape_webpage,
+compress_image,
+transcribe_audio,
+convert_markdown_to_html,
+filter_csv,
+download_file
+)
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
+
+load_dotenv()
+
+API_KEY = os.getenv("AIPROXY_TOKEN")
+
+URL_CHAT = "http://aiproxy.sanand.workers.dev/openai/v1/chat/completions"
+URL_EMBEDDING = "http://aiproxy.sanand.workers.dev/openai/v1/embeddings"
 
 app = FastAPI()
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+RUNNING_IN_CODESPACES = "CODESPACES" in os.environ
+RUNNING_IN_DOCKER = os.path.exists("/.dockerenv")
+logging.basicConfig(level=logging.INFO)
 
-@app.get("/read")
-async def read_file(path: str):
-    path = normalize_path(path)
-    if os.path.exists(path):
-        try:
-            with open(path, 'r') as file:
-                content = file.read()
-            return PlainTextResponse(content)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-    else:
-        raise HTTPException(status_code=404, detail="File not found.")
-
-@app.post("/run", response_model=dict)
-async def run_task(task: str = Query(..., description="User query to be processed by OpenAI")):
-    gpt_response = query_gpt(task, tools)
-    if "tool_calls" in gpt_response:
-        tool_call = gpt_response["tool_calls"][0]
-        function_name = tool_call["function"]["name"]
-        arguments = json.loads(tool_call["function"]["arguments"])
-
-        #Task: A1
-        if function_name == "run_uv_script":
-            url = arguments.get("url")
-            email = arguments.get("email")
-            if url and email:
-                return run_uv_script(url, email)
-            else:
-                return {"success": False, "message": "Missing required parameters."}
-        
-        #Task: A2
-        elif function_name == "format_file":
-            filepath = normalize_path(arguments.get("filepath"))
-
-            if filepath and os.path.exists(filepath):
-                return format_file(filepath)
-            else:
-                return {"success": False, "message": f"File {filepath} does not exist."}
-
-        #Task: A3
-        elif function_name == "count_weekdays":
-            file_path = normalize_path(arguments.get("file_path"))
-            weekday = arguments.get("weekday")
-            output_path = normalize_path(arguments.get("output_path"))
-
-            if file_path and weekday or output_path:
-                return count_weekdays(file_path, weekday, output_path)
-            else:
-                return {"success": False, "message": "Missing required parameters."}
-        
-        #Task: A4
-        elif function_name == "sort_contacts":
-            input_file = normalize_path(arguments.get("input_file"))
-            output_file = normalize_path(arguments.get("output_file"))
-            keys = arguments.get("keys")
-
-            if input_file and output_file and keys:
-                return sort_contacts(input_file, output_file, keys)
-            else:
-                return {"success": False, "message": "Missing required parameters."}
-            
-        #Task: A5
-        elif function_name == "write_recent_logs":
-            log_dir = normalize_path(arguments.get("log_dir"))
-            num_files = arguments.get("num_files")
-            output_file = normalize_path(arguments.get("output_file"))
-
-            if log_dir and output_file and num_files:
-                return write_recent_logs(log_dir, output_file, num_files)
-            else:
-                return {"success": False, "message": "Missing required parameters."}
-        
-        #Task: A6
-        elif function_name == "extract_markdown_headers":
-            input_dir = normalize_path(arguments.get("input_dir"))
-            output_file = normalize_path(arguments.get("output_file"))
-
-            if input_dir and output_file:
-                return extract_markdown_headers(input_dir, output_file)
-            else:
-                return {"success": False, "message": "Missing required parameters."}
-            
-        #Task: A7
-        elif function_name == "write_email_eddress":
-            input_file = normalize_path(arguments.get("input_file"))
-            output_file = normalize_path(arguments.get("output_file"))
-
-            if input_file and output_file:
-                return write_email_eddress(input_file, output_file)
-            else:
-                return {"success": False, "message": "Missing required parameters."}
-            
-        #Task: A8
-        elif function_name == "write_credit_card_no":
-            input_file = normalize_path(arguments.get("input_file"))
-            output_file = normalize_path(arguments.get("output_file"))
-
-            if input_file and output_file:
-                return write_credit_card_no(input_file, output_file)
-            else:
-                return {"success": False, "message": "Missing required parameters."}
-            
-        #Task: A9
-        elif function_name == "similar_comments":
-            input_file = normalize_path(arguments.get("input_file"))
-            output_file = normalize_path(arguments.get("output_file"))
-
-            if input_file and output_file:
-                result = await similar_comments(input_file, output_file) # Await here!
-                return result # Return the awaited result
-            else:
-                return {"success": False, "message": "Missing required parameters."}
-        
-        #Task: A10
-        elif function_name == "calculate_gold_sales":
-            input_file = normalize_path(arguments.get("input_file"))
-            output_file = normalize_path(arguments.get("output_file"))
-
-            if input_file and output_file:
-                return calculate_gold_sales(input_file, output_file)
-            else:
-                return {"success": False, "message": "Missing required parameters."}
-            
-        #Task: B2    
-        elif function_name == "never_delete":
-            #file = normalize_path(arguments.get("file"))
-            raise HTTPException(status_code=400, detail="Deletion of data is not permitted anywhere on the file system")
-
-        #Task: B3    
-        elif function_name == "fetch_and_save_data":
-            api_endpoint = arguments.get("api_endpoint")
-            output_file = normalize_path(arguments.get("output_file"))
-
-            if api_endpoint and output_file:
-                return fetch_and_save_data(api_endpoint, output_file)
-            else:
-                return {"success": False, "message": "Missing required parameters."}
-            
-        #Task: B4    
-        elif function_name == "clone_git":
-            repo_url = arguments.get("repo_url")
-            filepath = normalize_path(arguments.get("filepath"))
-
-            if repo_url and filepath:
-                return clone_git(repo_url, filepath)
-            else:
-                return {"success": False, "message": "Missing required parameters."}
-
-        #Task: B5    
-        elif function_name == "run_sql_query_on_db":
-            gpt_response = query_llm(
-            f"""
-            Get only the sql query from the following prompt:
-            ```
-            {task}
-            ```
-            Write *only* the sql query.  Do not include any other text or explanations or markdowns.
-            """
-            )
-            sql_query = gpt_response.get("content")
-
-            db_file = normalize_path(arguments.get("db_file"))
-            output_file = normalize_path(arguments.get("output_file"))
-            is_sqlite = arguments.get("is_sqlite")
-            is_sqlite = bool(is_sqlite)
-
-            if db_file and output_file and sql_query:
-                return run_sql_query_on_db(db_file, sql_query, output_file, is_sqlite)
-            else:
-                return {"success": False, "message": "Missing required parameters."}
+def ensure_local_path(path: str) -> str:
+    """Ensure the path uses './data/...' locally, but '/data/...' in Docker."""
+    if ((not RUNNING_IN_CODESPACES) and RUNNING_IN_DOCKER): 
+        print("IN HERE",RUNNING_IN_DOCKER) # If absolute Docker path, return as-is :  # If absolute Docker path, return as-is
+        return path
     
-        #Task: B6
-        elif function_name == "scrape_website":
-            url = arguments.get("url")
-            output_file = normalize_path(arguments.get("output_file"))
+    else:
+        logging.info(f"Inside ensure_local_path with path: {path}")
+        return path.lstrip("/")  
 
-            if url and output_file:
-                return scrape_website(url, output_file)
-            else:
-                return {"success": False, "message": "Missing required parameters."}
-            
-        #...
+function_mappings: Dict[str, Callable] = {
+    "download_file": download_file,  # Add this line
+    "install_and_run_script": install_and_run_script, 
+    "format_file_with_prettier": format_file_with_prettier,
+    "query_database": query_database, 
+    "extract_specific_text_using_llm": extract_specific_text_using_llm, 
+    "get_similar_text_using_embeddings": get_similar_text_using_embeddings, 
+    "extract_text_from_image": extract_text_from_image, 
+    "extract_specific_content_and_create_index": extract_specific_content_and_create_index, 
+    "process_and_write_logfiles": process_and_write_logfiles, 
+    "sort_json_by_keys": sort_json_by_keys, 
+    "count_occurrences": count_occurrences,
+    "fetch_data_from_api_and_save": fetch_data_from_api_and_save,  # B3
+    "clone_git_repo_and_commit": clone_git_repo_and_commit,          # B4
+    "scrape_webpage": scrape_webpage,                                # B6
+    "compress_image": compress_image,                                # B7
+    "transcribe_audio": transcribe_audio,                            # B8
+    "convert_markdown_to_html": convert_markdown_to_html,            # B9
+    "filter_csv": filter_csv,                                        # B10
+}
 
-        #Task: B9
-        elif function_name == "markdown_to_html":
-            input_file = normalize_path(arguments.get("input_file"))
-            output_file = normalize_path(arguments.get("output_file"))
+def parse_task_description(task: str, tools: list):
+    response = requests.post(
+        URL_CHAT,
+        headers={
+            "Authorization": f"Bearer {API_KEY}",
+            "Content-Type": "application/json"
+        },
+        json={
+            "model": "gpt-4o-mini",
+            "messages": [
+                {'role': 'system', 'content': "You are an intelligent agent that understands and parses tasks. You quickly identify the best tool functions to use to give the desired results."},
+                {"role": "user", "content": task}
+            ],
+            "tools": tools,
+            "tool_choice": "required",
+        }
+    )
+    logging.info("PRINTING RESPONSE:::" * 3)
+    try:
+        result = response.json()
+        if "choices" not in result or not result["choices"]:
+            raise ValueError("LLM response missing 'choices'. Full response: " + json.dumps(result))
+        return result["choices"][0]["message"]
+    except Exception as e:
+        logging.error(f"Error parsing LLM response: {e}")
+        raise
 
-            if input_file and output_file:
-                return markdown_to_html(input_file, output_file)
-            else:
-                return {"success": False, "message": "Missing required parameters."}
 
-    return {"error": "Could not determine the appropriate function"}
+def execute_function_call(function_call):
+    logging.info(f"Inside execute_function_call with function_call: {function_call}")
+    try:
+        function_name = function_call["name"]
+        function_args = json.loads(function_call["arguments"])
+        function_to_call = function_mappings.get(function_name)
+        logging.info("PRINTING RESPONSE:::"*3)
+        print('Calling function:', function_name)
+        print('Arguments:', function_args)
+        if function_to_call:
+            function_to_call(**function_args)
+        else:
+            raise ValueError(f"Function {function_name} not found")
+    except Exception as e:
+        error_details = traceback.format_exc()
+        raise HTTPException(status_code=500, 
+                            detail=f"Error executing function in execute_function_call: {str(e)}",
+                            headers={"X-Traceback": error_details}
+                            )
 
 
-if __name__ == '__main__':
+@app.post("/run")
+async def run_task(task: str = Query(..., description="Plain-English task description")):
+    tools = [convert_function_to_openai_schema(func) for func in function_mappings.values()]
+    logging.info(f"Number of tools: {len(tools)}")
+    logging.info(f"Inside run_task with task: {task}")
+    try:
+        function_call_response_message = parse_task_description(task, tools)  # returns message from response
+        tool_calls = function_call_response_message.get("tool_calls", [])
+        if tool_calls:
+            for tool in tool_calls:
+                execute_function_call(tool["function"])
+        return {"status": "success", "message": "Task executed successfully"}
+    except Exception as e:
+        logging.error("Error executing task", exc_info=True)
+        # Return a generic error message without exposing sensitive traceback details
+        raise HTTPException(status_code=500, detail="An internal error occurred while executing the task.")
+    
+
+@app.get("/read",response_class=PlainTextResponse)
+async def read_file(path: str = Query(..., description="Path to the file to read")):
+    logging.info(f"Inside read_file with path: {path}")
+    output_file_path = ensure_local_path(path)
+    if not os.path.exists(output_file_path):
+        raise HTTPException(status_code=500, detail=f"Error executing function in read_file (GET API")
+    with open(output_file_path, "r") as file:
+        content = file.read()
+    return content
+
+if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
